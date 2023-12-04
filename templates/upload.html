@@ -37,6 +37,15 @@
         let audioChunks = [];
         let audioBlob;
 
+        // Function to read the transcribed text aloud
+        function readAloud(text) {
+            let utterance = new SpeechSynthesisUtterance(text);
+            utterance.pitch = 1; // Default pitch
+            utterance.rate = 1; // Default rate
+            utterance.volume = 1; // Default volume
+            window.speechSynthesis.speak(utterance);
+        }
+
         // Start recording audio when the 'Start Recording' button is clicked
         document.getElementById("startRecord").addEventListener("click", function () {
             navigator.mediaDevices.getUserMedia({ audio: true })
@@ -53,13 +62,10 @@
 
                     // Handle actions after recording is stopped
                     mediaRecorder.addEventListener("stop", () => {
-                        // Create a blob from the recorded audio chunks
                         audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
                         const audioUrl = URL.createObjectURL(audioBlob);
-                        // Set the audio source for playback
                         const audio = document.getElementById("audio");
                         audio.src = audioUrl;
-                        // Enable the 'Submit Recording' button
                         document.getElementById("submitRecord").disabled = false;
                     });
                 })
@@ -79,16 +85,15 @@
             const formData = new FormData();
             formData.append("file", audioBlob, "recording.wav");
 
-            // Send the audio file to the server using XMLHttpRequest
             const xhr = new XMLHttpRequest();
             xhr.open("POST", "/uploader", true);
             xhr.onload = function () {
-                // Handle the response from the server
                 if (this.status === 200) {
                     const response = JSON.parse(this.responseText);
-                    // Display the transcription in the designated div
                     if (response.transcription) {
-                        document.getElementById("transcription").textContent = response.transcription;
+                        const transcriptionDiv = document.getElementById("transcription");
+                        transcriptionDiv.textContent = response.transcription;
+                        readAloud(response.transcription);
                     } else if (response.error) {
                         console.error("Error during transcription: " + response.error);
                     }
@@ -99,6 +104,7 @@
             xhr.send(formData);
         });
     </script>
+
 
 </body>
 
