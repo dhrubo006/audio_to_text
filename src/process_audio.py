@@ -1,24 +1,30 @@
-from transformers import pipeline
+from transformers import pipeline, GPTNeoForCausalLM, GPT2Tokenizer
 
+# Initialize the Whisper model for audio transcription
+transcribe_pipe = pipeline(model="openai/whisper-large-v3")
 
-# Initialize the Whisper model
-pipe = pipeline(model="openai/whisper-large-v3")
+# Initialize the GPT-Neo model for response generation
+tokenizer = GPT2Tokenizer.from_pretrained("EleutherAI/gpt-neo-125M")
+gpt_neo_model = GPTNeoForCausalLM.from_pretrained("EleutherAI/gpt-neo-125M")
 
 
 def process_audio(audio_path):
     """
-    Process the given audio file for speech-to-text transcription using Whisper Large v3.
-
-    This function takes the path of an audio file as input and utilizes the Whisper Large v3
-    model to transcribe the speech in the audio file to text. It handles any exceptions during
-    the transcription process and logs an error if one occurs.
+    Process the audio file for transcription and generate a response.
 
     Args:
-    audio_path (str): The file path of the audio file to be transcribed.
+        audio_path (str): Path to the audio file to be processed.
 
     Returns:
-    str: The transcribed text from the audio file if successful, otherwise raises an exception.
+        tuple: Transcription of the audio and the generated response.
     """
-    result = pipe(audio_path)
-    return result["text"]
+    # Transcribe the audio
+    result = transcribe_pipe(audio_path)
+    transcription = result["text"]
 
+    # Generate a response using GPT-Neo-125M
+    inputs = tokenizer.encode(transcription, return_tensors="pt")
+    outputs = gpt_neo_model.generate(inputs)
+    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+    return transcription, response

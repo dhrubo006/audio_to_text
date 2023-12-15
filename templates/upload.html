@@ -1,133 +1,58 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-    <title>Audio Recorder and Uploader</title>
+    <!-- Title of the web page -->
+    <title>Audio Transcription and Response Generator</title>
 </head>
 
 <body>
+    <!-- Heading for the audio upload section -->
+    <h3>Upload Audio for Transcription</h3>
 
-    <h3>Upload or Record Audio for Transcription</h3>
-
-    <!-- Form for uploading audio files from the user's device -->
+    <!-- Form for uploading audio files -->
     <form id="uploadForm" action="/uploader" method="POST" enctype="multipart/form-data">
+        <!-- Input for selecting an audio file, accepting only audio file types -->
         <input type="file" name="file" accept="audio/*" />
+        <!-- Submit button for the form -->
         <input type="submit" value="Upload Audio File" />
     </form>
-    <br>
 
-    <!-- Section for recording audio directly in the browser -->
-    <form id="recordForm">
-        <!-- Button to start audio recording -->
-        <button type="button" id="startRecord">Start Recording</button>
-        <!-- Button to stop audio recording, initially disabled -->
-        <button type="button" id="stopRecord" disabled>Stop Recording</button>
-        <!-- Button to submit the recorded audio, initially disabled -->
-        <button type="button" id="submitRecord" disabled>Submit Recording</button>
-        <br><br>
-        <!-- Audio element to playback the recorded audio -->
-        <audio id="audio" controls></audio>
-    </form>
-
-    <!-- Element to display the transcription result from the server -->
+    <!-- Div elements for displaying the transcription and generated response -->
     <div id="transcription"></div>
+    <div id="response"></div>
 
     <script>
-        let mediaRecorder;
-        let audioChunks = [];
-        let audioBlob;
+        // JavaScript code to handle the form submission
+        document.getElementById('uploadForm').onsubmit = function (event) {
+            // Prevent the default form submission behavior
+            event.preventDefault();
 
-        // Function to read the transcribed text aloud using speech synthesis
-        function readAloud(text) {
-            let utterance = new SpeechSynthesisUtterance(text);
-            utterance.pitch = 1; // Set default pitch
-            utterance.rate = 1; // Set default rate
-            utterance.volume = 1; // Set default volume
-            window.speechSynthesis.speak(utterance);
-        }
+            // Create FormData object from the form
+            var formData = new FormData(this);
 
-        // Intercept the upload form submission to handle it with JavaScript
-        document.getElementById("uploadForm").addEventListener("submit", function (event) {
-            event.preventDefault(); // Prevent the normal form submission
-            const formData = new FormData(this); // Create FormData object from the form
-            sendAudioToServer(formData); // Send the form data to the server
-        });
+            // Make an asynchronous POST request to the server with the form data
+            fetch('/uploader', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())  // Parsing the JSON response from the server
+            .then(data => {
+                // Displaying the transcription and response in their respective divs
+                document.getElementById('transcription').innerText = 'Transcription: ' + data.transcription;
+                document.getElementById('response').innerText = 'Response: ' + data.response;
 
-        // Event listener for the 'Start Recording' button
-        document.getElementById("startRecord").addEventListener("click", function () {
-            // Request access to the user's microphone
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(stream => {
-                    mediaRecorder = new MediaRecorder(stream);
-                    document.getElementById("stopRecord").disabled = false; // Enable the 'Stop Recording' button
-                    mediaRecorder.start(); // Start recording
-                    audioChunks = []; // Initialize the audio chunks array
+                // Using the speech synthesis API to speak out the transcription and response
+                speak(data.transcription);
+                speak(data.response);
+            })
+            .catch(error => console.error('Error:', error)); // Handling any errors in the fetch operation
+        };
 
-                    // Collect audio data chunks during recording
-                    mediaRecorder.addEventListener("dataavailable", event => {
-                        audioChunks.push(event.data);
-                    });
-
-                    // Actions to take after recording is stopped
-                    mediaRecorder.addEventListener("stop", () => {
-                        // Create an audio blob from the recorded chunks
-                        audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                        // Generate a URL for the audio blob and set it as the source for playback
-                        const audioUrl = URL.createObjectURL(audioBlob);
-                        const audio = document.getElementById("audio");
-                        audio.src = audioUrl;
-                        // Enable the 'Submit Recording' button
-                        document.getElementById("submitRecord").disabled = false;
-                    });
-                })
-                .catch(error => {
-                    // Log errors if accessing the media device fails
-                    console.error("Error accessing media devices.", error);
-                });
-        });
-
-        // Event listener for the 'Stop Recording' button
-        document.getElementById("stopRecord").addEventListener("click", function () {
-            mediaRecorder.stop(); // Stop the recording
-            document.getElementById("stopRecord").disabled = true; // Disable the button
-        });
-
-        // Event listener for the 'Submit Recording' button
-        document.getElementById("submitRecord").addEventListener("click", function () {
-            const formData = new FormData(); // Create a new FormData object
-            // Append the recorded audio blob to the FormData object
-            formData.append("file", audioBlob, "recording.wav");
-            sendAudioToServer(formData); // Send the FormData to the server
-        });
-
-        // Function to send audio data to the server and handle the response
-        function sendAudioToServer(formData) {
-            const xhr = new XMLHttpRequest(); // Create a new XMLHttpRequest
-            xhr.open("POST", "/uploader", true); // Set up the request to the '/uploader' endpoint
-
-            // Function to handle the response from the server
-            xhr.onload = function () {
-                // Check if the request was successful
-                if (this.status === 200) {
-                    const response = JSON.parse(this.responseText); // Parse the response
-                    // If transcription is present in the response
-                    if (response.transcription) {
-                        const transcriptionDiv = document.getElementById("transcription");
-                        transcriptionDiv.textContent = response.transcription; // Display the transcription
-                        readAloud(response.transcription); // Read the transcription aloud
-                    } else if (response.error) {
-                        // Handle any errors during transcription
-                        console.error("Error during transcription: " + response.error);
-                    }
-                } else {
-                    // Log an error if the upload failed
-                    console.error("Upload failed with status: " + this.status);
-                }
-            };
-            xhr.send(formData); // Send the FormData to the server
+        // Function to use the Web Speech API's speech synthesis feature
+        function speak(text) {
+            var utterance = new SpeechSynthesisUtterance(text);
+            speechSynthesis.speak(utterance);
         }
     </script>
-
 </body>
-
 </html>
